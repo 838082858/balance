@@ -21,7 +21,7 @@ func main() {
 
 	err := r.Run()
 	if err != nil {
-		//panic(err)
+		panic(err)
 	}
 
 }
