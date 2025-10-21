@@ -12,7 +12,7 @@ import (
 )
 
 func CreateBalance(c *gin.Context) {
-	// var req model.CreateBalanceReq
+	var req model.CreateBalanceReq
 	bindErr := c.ShouldBindJSON(&req)
 	if bindErr != nil {
 		log.Println(bindErr.Error())
