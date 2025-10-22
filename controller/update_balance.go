@@ -19,7 +19,6 @@ func UpdateBalance(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.NewErrResponse(http.StatusBadRequest, bindErr.Error(), nil))
 		return
 	}
-
 	//查找
 	var (
 		balanceId = req.Id
@@ -38,7 +37,6 @@ func UpdateBalance(c *gin.Context) {
 		c.JSON(http.StatusOK, model.NewErrResponse(http.StatusOK, "search user fail! There is no such data!", nil))
 		return
 	}
-
 	//更新
 	updateErr, rows := service.Update(balance, req.Balance)
 	if updateErr != nil {
