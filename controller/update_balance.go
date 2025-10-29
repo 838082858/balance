@@ -19,12 +19,12 @@ func UpdateBalance(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.NewErrResponse(http.StatusBadRequest, bindErr.Error(), nil))
 		return
 	}
+
 	//查找
 	var (
-		balanceId = req.Id
+		balanceAccountId = req.Id
 	)
-
-	balance, getErr, _ := service.Get(balanceId)
+	_, getErr, _ := service.Get(balanceAccountId)
 	//findResult := dao.DB.Where("balance_account_id", acid.Id).Find(&userBalance)
 	if getErr != nil && !errors.Is(getErr, gorm.ErrRecordNotFound) {
 		//查找，失败
@@ -34,11 +34,12 @@ func UpdateBalance(c *gin.Context) {
 	} else if getErr != nil {
 		//查找，没有
 		log.Println("search user fail! There is no such data.")
-		c.JSON(http.StatusOK, model.NewErrResponse(http.StatusOK, "search user fail! There is no such data!", nil))
+		c.JSON(http.StatusOK, model.NewErrResponse(http.StatusOK, "update user fail! There is no such data!", nil))
 		return
 	}
+
 	//更新
-	updateErr, rows := service.Update(balance, req.Balance)
+	updateErr, rows := service.Update(req, req.Balance)
 	if updateErr != nil {
 		log.Println("update user fail!", updateErr.Error)
 		c.JSON(http.StatusInternalServerError, model.NewErrResponse(http.StatusInternalServerError, "update user fail!server error!", nil))
@@ -46,7 +47,7 @@ func UpdateBalance(c *gin.Context) {
 	}
 
 	//再查找一次
-	newBalance, newGetErr, _ := service.Get(balanceId)
+	exist, newGetErr, _ := service.Get(balanceAccountId)
 	//findResult := dao.DB.Where("balance_account_id", acid.Id).Find(&userBalance)
 	if newGetErr != nil && !errors.Is(newGetErr, gorm.ErrRecordNotFound) {
 		//查找，失败
@@ -60,15 +61,15 @@ func UpdateBalance(c *gin.Context) {
 		return
 	}
 
-	var updateUserResp = model.UpdateBalanceResp{
-		BalanceAccountId: newBalance.BalanceAccountId,
-		Balance:          newBalance.Balance,
-		CreateTime:       newBalance.CreateTime,
-		UpdateTime:       newBalance.UpdateTime,
-		Currency:         newBalance.Currency,
+	var resp = model.UpdateBalanceResp{
+		BalanceAccountId: exist.BalanceAccountId,
+		Balance:          exist.Balance,
+		CreateTime:       exist.CreateTime,
+		UpdateTime:       exist.UpdateTime,
+		Currency:         exist.Currency,
 	}
 
-	log.Printf("update user success!Id:%d, balance:%d, Rows Affected;%d, %+v\n", updateUserResp.BalanceAccountId, updateUserResp.Balance, rows, updateUserResp)
-	c.JSON(http.StatusOK, model.NewErrResponse(http.StatusOK, "update success!", updateUserResp))
+	log.Printf("update user success!Id:%d, balance:%d, Rows Affected;%d, %+v\n", resp.BalanceAccountId, resp.Balance, rows, resp)
+	c.JSON(http.StatusOK, model.NewErrResponse(http.StatusOK, "update success!", resp))
 
 }

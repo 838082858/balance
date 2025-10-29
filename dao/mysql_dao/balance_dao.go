@@ -1,7 +1,7 @@
-package dao
+package mysql_dao
 
 import (
-	"http-demo/model"
+	"http-demo/model/mysql_model"
 	"log"
 
 	"gorm.io/driver/mysql"
@@ -20,25 +20,25 @@ func MysqlStorage() {
 }
 
 // select balance
-func SelectBalance(obj *model.Balance, balanceAccountId uint64) (error, int64) {
+func SelectBalance(obj *mysql_model.Balance, balanceAccountId uint64) (error, int64) {
 	findResult := DB.Where("balance_account_id = ?", balanceAccountId).First(obj)
 	return findResult.Error, findResult.RowsAffected
 }
 
 // create balance
-func CreateBalance(obj *model.Balance) (error, int64) {
+func CreateBalance(obj *mysql_model.Balance) (error, int64) {
 	createResult := DB.Create(obj)
 	return createResult.Error, createResult.RowsAffected
 }
 
 // delete balance
-func DeleteBalance(obj *model.Balance) (error, int64) {
-	deleteResult := DB.Delete(obj)
+func DeleteBalance(obj *mysql_model.Balance) (error, int64) {
+	deleteResult := DB.Where("balance_account_id = ?", obj.BalanceAccountId).Delete(&mysql_model.Balance{})
 	return deleteResult.Error, deleteResult.RowsAffected
 }
 
 // update balance
-func UpdateBalance(obj *model.Balance, balance uint64) (error, int64) {
-	updateResult := DB.Model(obj).Update("balance", balance)
+func UpdateBalance(obj *mysql_model.Balance, balance uint64) (error, int64) {
+	updateResult := DB.Model(&mysql_model.Balance{}).Where("balance_account_id = ?", obj.BalanceAccountId).Update("balance", balance)
 	return updateResult.Error, updateResult.RowsAffected
 }

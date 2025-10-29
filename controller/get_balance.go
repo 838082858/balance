@@ -23,7 +23,7 @@ func GetBalance(c *gin.Context) {
 	var (
 		balanceAccountId = req.Id
 	)
-	balance, err, rows := service.Get(balanceAccountId)
+	resp, err, rows := service.Get(balanceAccountId)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		//报错，非找不到
 		log.Println("server error! ", err)
@@ -34,13 +34,7 @@ func GetBalance(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.NewErrResponse(http.StatusBadRequest, "search user fail! There is no such data!", nil))
 		return
 	}
-	var resp = model.GetBalanceResp{
-		BalanceAccountId: balance.BalanceAccountId,
-		Balance:          balance.Balance,
-		CreateTime:       balance.CreateTime,
-		UpdateTime:       balance.UpdateTime,
-		Currency:         balance.Currency,
-	}
+
 	log.Printf("search user success!Id:%d, balance:%d, Rows Affected;%d, %+v\n", resp.BalanceAccountId, resp.Balance, rows, resp)
 	c.JSON(http.StatusOK, model.NewErrResponse(http.StatusOK, "search user success", resp))
 

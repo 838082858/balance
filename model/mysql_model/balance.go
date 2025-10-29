@@ -1,4 +1,4 @@
-package model
+package mysql_model
 
 // 余额数据库，表模型
 type Balance struct {
