@@ -14,7 +14,7 @@ var rdb *redis.Client
 
 func RedisStorage() {
 	var ctx = context.Background()
-	rdb := redis.NewClient(&redis.Options{
+	rdb = redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379", // Redis 服务器地址
 		Password: "",               // Redis 密码，如果没有则留空
 		DB:       0,                // 使用默认的数据库 0,redis有0~15的数据库，之间的数据是隔离的。
@@ -29,13 +29,16 @@ func RedisStorage() {
 // GetBalanceCache strconv转换字符串，Format格式，Uint指uint64
 func GetBalanceCache(ctx context.Context, balanceAccountId uint64) (*redis_model.Balance, error) {
 	val, err := rdb.Get(ctx, strconv.FormatUint(balanceAccountId, 10)).Result()
-	var getCacheResult *redis_model.Balance
-	unmErr := json.Unmarshal([]byte(val), getCacheResult)
+	if err != nil {
+		return nil, err
+	}
+	var getCacheResult redis_model.Balance
+	//一定要在这里转换，行业规定
+	unmErr := json.Unmarshal([]byte(val), &getCacheResult)
 	if unmErr != nil {
 		return nil, unmErr
-		//一定要在这里转换，行业规定
 	}
-	return getCacheResult, err
+	return &getCacheResult, nil
 }
 
 // SetBalanceCache 创建新数据

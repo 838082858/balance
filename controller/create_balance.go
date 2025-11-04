@@ -20,7 +20,7 @@ func CreateBalance(c *gin.Context) {
 	}
 
 	// 创建
-	resp, err, row := service.Create(&req)
+	resp, err := service.CreateService(&req)
 
 	//错误返回
 	if err != nil && err.Error() == "user existed!" {
@@ -41,7 +41,7 @@ func CreateBalance(c *gin.Context) {
 	}
 
 	//创建成功
-	log.Printf("create user success! Id:%d, balance:%d, Rows Affected;%d, %+v\n", resp.BalanceAccountId, resp.Balance, row, resp)
+	log.Printf("create user success! Id:%d, balance:%d,  %+v\n", resp.BalanceAccountId, resp.Balance, resp)
 	c.JSON(http.StatusOK, model.Response{
 		Code:    200,
 		Message: "create user success!",

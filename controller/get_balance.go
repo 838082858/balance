@@ -10,6 +10,7 @@ import (
 )
 
 func GetBalance(c *gin.Context) {
+	ctx := c.Request.Context()
 	// 校验
 	var req model.GetBalanceReq
 	bindErr := c.ShouldBindJSON(&req)
@@ -19,7 +20,7 @@ func GetBalance(c *gin.Context) {
 	}
 
 	//查找账户
-	resp, err, rows := service.Get(&req)
+	resp, err := service.GetService(ctx, &req)
 
 	// 错误判断
 	if err != nil && err.Error() == "search user fail! There is no such data." {
@@ -35,7 +36,7 @@ func GetBalance(c *gin.Context) {
 	}
 
 	// 查找成功
-	log.Printf("search user success!Id:%d, balance:%d, Rows Affected;%d, %+v\n", resp.BalanceAccountId, resp.Balance, rows, resp)
+	log.Printf("search user success!Id:%d, balance:%d, %+v\n", resp.BalanceAccountId, resp.Balance, resp)
 	c.JSON(http.StatusOK, model.NewErrResponse(http.StatusOK, "search user success", resp))
 
 }
