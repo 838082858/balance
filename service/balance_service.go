@@ -96,7 +96,6 @@ func CreateService(ctx context.Context, req *model.CreateBalanceReq) (*model.Cre
 		Currency:         balance.Currency,
 	}, nil
 
-	//todo redis在这里写
 }
 
 func DeleteService(ctx context.Context, req *model.DeleteBalanceReq) (*model.DeleteBalanceResp, error) {
