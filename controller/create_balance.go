@@ -10,6 +10,7 @@ import (
 )
 
 func CreateBalance(c *gin.Context) {
+	ctx := c.Request.Context()
 	//校验
 	var req model.CreateBalanceReq
 	bindErr := c.ShouldBindJSON(&req)
@@ -20,7 +21,7 @@ func CreateBalance(c *gin.Context) {
 	}
 
 	// 创建
-	resp, err := service.CreateService(&req)
+	resp, err := service.CreateService(ctx, &req)
 
 	//错误返回
 	if err != nil && err.Error() == "user existed!" {

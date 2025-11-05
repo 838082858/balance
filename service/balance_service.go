@@ -33,7 +33,7 @@ func GetService(ctx context.Context, req *model.GetBalanceReq) (*model.GetBalanc
 	// sql get
 	//不要用var req *model.Balance，这个只声明没有初始化没有分配内存，是指向nil的空指针，First(req)就会报错。
 	mysqlBalance := mysql_model.Balance{}
-	err = mysql_dao.GetBalance(&mysqlBalance, req.Id)
+	err = mysql_dao.GetBalance(ctx, &mysqlBalance, req.Id)
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		// 没查到，findResult.Error == gorm.ErrRecordNotFound
 		log.Println(err)
@@ -69,11 +69,12 @@ func GetService(ctx context.Context, req *model.GetBalanceReq) (*model.GetBalanc
 
 }
 
-func CreateService(req *model.CreateBalanceReq) (*model.CreateBalanceResp, error) {
+func CreateService(ctx context.Context, req *model.CreateBalanceReq) (*model.CreateBalanceResp, error) {
+
 	balance := mysql_model.Balance{}
 
 	// get是否存在
-	err := mysql_dao.GetBalance(&balance, req.Id)
+	err := mysql_dao.GetBalance(ctx, &balance, req.Id)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		//SQL 执行出错（非“记录不存在”）
 		//err.Error == gorm.ErrRecordNotFound没查到数。
@@ -85,7 +86,7 @@ func CreateService(req *model.CreateBalanceReq) (*model.CreateBalanceResp, error
 
 	// create
 	balance = mysql_model.Balance{BalanceAccountId: req.Id, Balance: req.Balance, Currency: req.Currency, Version: req.Version}
-	err = mysql_dao.CreateBalance(&balance)
+	err = mysql_dao.CreateBalance(ctx, &balance)
 	if err != nil {
 		return nil, errors.New("user create fail，server error!")
 	}
@@ -101,7 +102,7 @@ func CreateService(req *model.CreateBalanceReq) (*model.CreateBalanceResp, error
 func DeleteService(ctx context.Context, req *model.DeleteBalanceReq) (*model.DeleteBalanceResp, error) {
 	// sql get
 	balance := mysql_model.Balance{}
-	err := mysql_dao.GetBalance(&balance, req.Id)
+	err := mysql_dao.GetBalance(ctx, &balance, req.Id)
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		// 没找到数据
 		log.Println(err)
@@ -120,7 +121,7 @@ func DeleteService(ctx context.Context, req *model.DeleteBalanceReq) (*model.Del
 	}
 
 	// sql delete
-	err = mysql_dao.DeleteBalance(&balance)
+	err = mysql_dao.DeleteBalance(ctx, &balance)
 	if err != nil {
 		//删除失败
 		log.Println(err)
@@ -139,7 +140,7 @@ func DeleteService(ctx context.Context, req *model.DeleteBalanceReq) (*model.Del
 func UpdateService(ctx context.Context, req *model.UpdateBalanceReq) (*model.UpdateBalanceResp, error) {
 	// sql get
 	balance := mysql_model.Balance{}
-	err := mysql_dao.GetBalance(&balance, req.Id)
+	err := mysql_dao.GetBalance(ctx, &balance, req.Id)
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		// 没找到数据
 		log.Println(err)
@@ -159,7 +160,7 @@ func UpdateService(ctx context.Context, req *model.UpdateBalanceReq) (*model.Upd
 
 	// sql update
 	balance = mysql_model.Balance{BalanceAccountId: req.Id, Balance: req.Balance}
-	err = mysql_dao.UpdateBalance(&balance)
+	err = mysql_dao.UpdateBalance(ctx, &balance)
 	if err != nil {
 		log.Println(err)
 		return nil, err
