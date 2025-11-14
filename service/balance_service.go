@@ -8,8 +8,11 @@ import (
 	"http-demo/model"
 	"http-demo/model/mysql_model"
 	"http-demo/model/redis_model"
+	"http-demo/utils"
 	"log"
+	"time"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
@@ -37,7 +40,7 @@ func GetService(ctx context.Context, req *model.GetBalanceReq) (*model.GetBalanc
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		// 没查到，findResult.Error == gorm.ErrRecordNotFound
 		log.Println(err)
-		return nil, errors.New("search user fail! There is no such data.")
+		return nil, errors.New("search user fail! There is no such data")
 	} else if err != nil {
 		// SQL 执行出错（非“记录不存在”）
 		log.Println(err)
@@ -76,19 +79,18 @@ func CreateService(ctx context.Context, req *model.CreateBalanceReq) (*model.Cre
 	// get是否存在
 	err := mysql_dao.GetBalance(ctx, &balance, req.Id)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		//SQL 执行出错（非“记录不存在”）
-		//err.Error == gorm.ErrRecordNotFound没查到数。
+		//查询时发生数据库错误（不是“没查到记录”）
 		return nil, err
 	} else if err == nil {
 		//查到记录
-		return nil, errors.New("user existed!")
+		return nil, utils.ErrAccountFound
 	}
 
 	// create
-	balance = mysql_model.Balance{BalanceAccountId: req.Id, Balance: req.Balance, Currency: req.Currency, Version: req.Version}
+	balance = mysql_model.Balance{BalanceAccountId: req.Id, Balance: req.Balance, Currency: req.Currency}
 	err = mysql_dao.CreateBalance(ctx, &balance)
 	if err != nil {
-		return nil, errors.New("user create fail，server error!")
+		return nil, errors.New("user create fail，server error")
 	}
 	return &model.CreateBalanceResp{
 		BalanceAccountId: balance.BalanceAccountId,
@@ -105,7 +107,7 @@ func DeleteService(ctx context.Context, req *model.DeleteBalanceReq) (*model.Del
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		// 没找到数据
 		log.Println(err)
-		return nil, errors.New("delete user fail! There is no such data!")
+		return nil, errors.New("delete user fail! There is no such data")
 	} else if err != nil {
 		// 查到失败
 		log.Println(err)
@@ -143,7 +145,7 @@ func UpdateService(ctx context.Context, req *model.UpdateBalanceReq) (*model.Upd
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		// 没找到数据
 		log.Println(err)
-		return nil, errors.New("Update user fail! There is no such data!")
+		return nil, errors.New("update user fail! There is no such data")
 	} else if err != nil {
 		// 查到失败
 		log.Println(err)
@@ -170,4 +172,165 @@ func UpdateService(ctx context.Context, req *model.UpdateBalanceReq) (*model.Upd
 		Balance:          balance.Balance,
 	}, nil
 
+}
+
+func TransferService(ctx context.Context, req *model.TransferBalanceReq) (*model.TransferBalanceResp, error) {
+	fromAccount := mysql_model.Balance{}
+	toAccount := mysql_model.Balance{}
+	transfer := mysql_model.Transaction{
+		TransactionId:   req.TransactionId,
+		TransactionType: req.TransactionType,
+		FromAccountId:   req.FromAccountId,
+		ToAccountId:     req.ToAccountId,
+		Amount:          req.Amount,
+		Currency:        req.Currency,
+		ExpansionFactor: req.ExpansionFactor,
+	}
+	//开启事务
+	transactionErr := mysql_dao.DB.Transaction(func(tx *gorm.DB) error {
+		// sql get
+		fromErr := mysql_dao.GetBalance(ctx, &fromAccount, req.FromAccountId)
+		toErr := mysql_dao.GetBalance(ctx, &toAccount, req.ToAccountId)
+		// AccountId not found
+		if errors.Is(fromErr, gorm.ErrRecordNotFound) {
+			return utils.ErrFromAccountNotFound
+		}
+		if errors.Is(toErr, gorm.ErrRecordNotFound) {
+			return utils.ErrToAccountNotFound
+		}
+		// SQL 执行出错（非“记录不存在”）
+		if fromErr != nil {
+			return fromErr
+		}
+		if toErr != nil {
+			return fromErr
+		}
+
+		// compar balence
+		if fromAccount.Balance < req.Amount {
+			return utils.ErrInsufficientBalance
+		}
+		// calculation
+		fromAccount.Balance = fromAccount.Balance - req.Amount
+		toAccount.Balance = toAccount.Balance + req.Amount
+		fromAccount.Version++
+		toAccount.Version++
+
+		// 顺序上锁id
+		var (
+			small mysql_model.Balance
+			big   mysql_model.Balance
+		)
+		if fromAccount.BalanceAccountId < toAccount.BalanceAccountId {
+			small = fromAccount
+			big = toAccount
+		} else {
+			small = toAccount
+			big = fromAccount
+		}
+		log.Println(small.BalanceAccountId, big.BalanceAccountId)
+
+		var mysqlErr *mysql.MySQLError
+		// CreateTransfer
+		err := mysql_dao.CreateTransfer(ctx, tx, &transfer)
+		if errors.As(err, &mysqlErr) {
+			switch mysqlErr.Number {
+			case 1062:
+				return utils.ErrDuplicateRequest
+			//case 1045:
+			//	return utils.ErrAccountNotFound
+			// todo test controller也没写，这两种什么场景？
+			case 1048:
+				return utils.ErrFieldZeroOrNull
+			case 1406:
+				return utils.ErrFieldLength
+			}
+		}
+
+		// Update small Balance
+		log.Println("UpdateTransfer ing....", time.Now())
+		rows, err := mysql_dao.UpdateTransferBalance(ctx, tx, &small)
+		if err != nil {
+			return err
+		}
+		if rows == 0 {
+			return utils.ErrOptimisticLockConflict
+		}
+		if errors.As(err, &mysqlErr) {
+			if mysqlErr.Number == 1205 {
+				return utils.ErrLockWaitTimeOut
+			}
+		}
+		// Update big Balance
+		rows, err = mysql_dao.UpdateTransferBalance(ctx, tx, &big)
+		if err != nil {
+			return err
+		}
+		if rows == 0 {
+			return utils.ErrOptimisticLockConflict
+		}
+		if errors.As(err, &mysqlErr) {
+			if mysqlErr.Number == 1205 {
+				return utils.ErrLockWaitTimeOut
+			}
+		}
+
+		return err
+	})
+
+	// 事务失败
+	if transactionErr != nil {
+		return nil, transactionErr
+	}
+
+	// redis set A
+	fromErr := mysql_dao.GetBalance(ctx, &fromAccount, req.FromAccountId)
+	toErr := mysql_dao.GetBalance(ctx, &toAccount, req.ToAccountId)
+	if fromErr != nil {
+		log.Println(fromErr)
+	}
+	if toErr != nil {
+		log.Println(toErr)
+	}
+	redisFromAccountA := &redis_model.Balance{
+		BalanceAccountId: fromAccount.BalanceAccountId,
+		Balance:          fromAccount.Balance,
+		CreateTime:       fromAccount.CreateTime,
+		UpdateTime:       fromAccount.UpdateTime,
+		Currency:         fromAccount.Currency,
+	}
+	err := redis_dao.SetBalanceCache(ctx, redisFromAccountA.BalanceAccountId, redisFromAccountA)
+	if err != nil {
+		log.Println("redis set error!")
+	}
+	redisFromAccountB := &redis_model.Balance{
+		BalanceAccountId: toAccount.BalanceAccountId,
+		Balance:          toAccount.Balance,
+		CreateTime:       toAccount.CreateTime,
+		UpdateTime:       toAccount.UpdateTime,
+		Currency:         toAccount.Currency,
+	}
+	err = redis_dao.SetBalanceCache(ctx, redisFromAccountB.BalanceAccountId, redisFromAccountB)
+	if err != nil {
+		log.Println("redis set error!")
+	}
+
+	// get Transfer
+	err = mysql_dao.GetTransfer(ctx, mysql_dao.DB, &transfer)
+	if err != nil {
+		log.Println("transfer set error!")
+	}
+
+	// return
+	return &model.TransferBalanceResp{
+		TransactionId:   transfer.TransactionId,
+		TransactionType: transfer.TransactionType,
+		FromAccountId:   transfer.FromAccountId,
+		ToAccountId:     transfer.ToAccountId,
+		Amount:          transfer.Amount,
+		Currency:        transfer.Currency,
+		CreateTime:      transfer.CreateTime,
+		UpdateTime:      transfer.UpdateTime,
+		ExpansionFactor: transfer.ExpansionFactor,
+	}, nil
 }

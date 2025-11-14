@@ -34,6 +34,12 @@ func GetBalance(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, model.NewErrResponse(http.StatusInternalServerError, "server error!", nil))
 		return
 	}
+	// todo 错误处理修改，还有util包的那些错误变量，归到一处。
+	//if err != nil {
+	//	if errors.Is(err, utils.ErrInsufficientBalance) {
+	//
+	//	}
+	//}
 
 	// 查找成功
 	log.Printf("search user success!Id:%d, balance:%d, %+v\n", resp.BalanceAccountId, resp.Balance, resp)

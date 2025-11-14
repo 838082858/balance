@@ -25,6 +25,7 @@ func main() {
 	r.POST("/UpdateBalance", controller.UpdateBalance)
 	//--------------------数据库delete信息
 	r.POST("/DeleteBalance", controller.DeleteBalance)
+	r.POST("/TransferBalance", controller.TransferBalance)
 	err := r.Run()
 	if err != nil {
 		panic(err)

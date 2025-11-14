@@ -8,7 +8,7 @@ type Balance struct {
 	CreateTime       uint64 `gorm:"column:create_time;autoCreateTime"`    // create time
 	UpdateTime       uint64 `gorm:"column:update_time;autoUpdateTime"`    // update time
 	Currency         string `gorm:"column:currency"`                      // currency
-	Version          uint64 `gorm:"column:version"`
+	Version          uint64 `gorm:"column:version;default:1"`
 }
 
 func (m *Balance) TableName() string {
