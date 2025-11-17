@@ -237,11 +237,10 @@ func TransferService(ctx context.Context, req *model.TransferBalanceReq) (*model
 			switch mysqlErr.Number {
 			case 1062:
 				return utils.ErrDuplicateRequest
-			//case 1045:
-			//	return utils.ErrAccountNotFound
-			// todo test controller也没写，这两种什么场景？
+			//0 or empty
 			case 1048:
 				return utils.ErrFieldZeroOrNull
+				// DATA TOO LONG
 			case 1406:
 				return utils.ErrFieldLength
 			}

@@ -72,6 +72,16 @@ func TransferBalance(c *gin.Context) {
 		c.JSON(http.StatusGatewayTimeout, model.NewErrResponse(http.StatusBadRequest, "Operation timeout.Please refresh and try again.", nil))
 		return
 	}
+	// 字段不能为0或空
+	if errors.Is(err, utils.ErrFieldZeroOrNull) {
+		c.JSON(http.StatusBadRequest, model.NewErrResponse(http.StatusBadRequest, "required fields not 0 or empty.", nil))
+		return
+	}
+	// 字段过长
+	if errors.Is(err, utils.ErrFieldLength) {
+		c.JSON(http.StatusBadRequest, model.NewErrResponse(http.StatusBadRequest, "Some fields are too long.", nil))
+		return
+	}
 	//其他错误
 	if err != nil {
 		log.Println(err)

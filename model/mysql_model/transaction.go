@@ -9,6 +9,8 @@ type Transaction struct {
 	ToAccountId     uint64 `gorm:"column:to_account_id" json:"to_account_id"`
 	Amount          uint64 `gorm:"column:amount" json:"amount"`
 	Currency        string `gorm:"column:currency" json:"currency"`
+
+	//Currency        *string `gorm:"column:currency" json:"currency"`
 	CreateTime      uint64 `gorm:"column:create_time;autoCreateTime" json:"create_time"`
 	UpdateTime      uint64 `gorm:"column:update_time;autoUpdateTime" json:"update_time"`
 	ExpansionFactor uint64 `gorm:"column:expansion_factor" json:"expansion_factor"`

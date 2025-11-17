@@ -19,6 +19,15 @@ func MysqlStorage() {
 	}
 }
 
+//func NewMysqlStorage()(*gorm.DB) {
+//	dsn := "root:838082858@tcp(127.0.0.1:3306)/http?charset=utf8mb4&parseTime=True&loc=Local"
+//	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+//	if err != nil {
+//		panic(err)
+//	}
+//	return db
+//}
+
 // select balance
 func GetBalance(ctx context.Context, obj *mysql_model.Balance, balanceAccountId uint64) error {
 	//where里面写的字段是数据库里的。SELECT * FROM `balance` WHERE balance_account_id = 555,Find(搜索出来的结果).
