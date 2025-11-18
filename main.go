@@ -2,7 +2,6 @@ package main
 
 import (
 	"http-demo/controller"
-	"http-demo/dao/mysql_dao"
 	"http-demo/dao/redis_dao"
 
 	"github.com/gin-gonic/gin"
@@ -12,8 +11,8 @@ func main() {
 	//redis启动
 	redis_dao.RedisStorage()
 
-	//mysql启动
-	mysql_dao.MysqlStorage()
+	////mysql启动
+	//mysql_dao.MysqlStorage()
 
 	//gin启动
 	r := gin.Default()
@@ -25,6 +24,7 @@ func main() {
 	r.POST("/UpdateBalance", controller.UpdateBalance)
 	//--------------------数据库delete信息
 	r.POST("/DeleteBalance", controller.DeleteBalance)
+	//--------------------数据库transfer信息
 	r.POST("/TransferBalance", controller.TransferBalance)
 	err := r.Run()
 	if err != nil {

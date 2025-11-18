@@ -28,7 +28,9 @@ func TransferBalance(c *gin.Context) {
 		return
 	}
 	// 调用Service
-	resp, err := service.TransferService(ctx, &req)
+	svc := service.GetService()
+	resp, err := svc.TransferService(ctx, &req)
+	//resp, err := service.TransferService(ctx, &req)
 
 	//错误返回
 	//没有这个账户

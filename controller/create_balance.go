@@ -21,7 +21,8 @@ func CreateBalance(c *gin.Context) {
 	}
 
 	// 创建
-	resp, err := service.CreateService(ctx, &req)
+	svc := service.GetService()
+	resp, err := svc.CreateBalanceService(ctx, &req)
 
 	//错误返回
 	if err != nil && err.Error() == "user existed!" {

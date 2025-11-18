@@ -21,7 +21,8 @@ func UpdateBalance(c *gin.Context) {
 	}
 
 	// 查找
-	resp, err := service.UpdateService(ctx, &req)
+	svc := service.GetService()
+	resp, err := svc.UpdateBalanceService(ctx, &req)
 
 	// 错误返回
 	if err != nil && err.Error() == "Update user fail! There is no such data!" {

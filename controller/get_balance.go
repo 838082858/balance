@@ -20,7 +20,8 @@ func GetBalance(c *gin.Context) {
 	}
 
 	//查找账户
-	resp, err := service.GetService(ctx, &req)
+	svc := service.GetService()
+	resp, err := svc.GetBalanceService(ctx, &req)
 
 	// 错误判断
 	if err != nil && err.Error() == "search user fail! There is no such data." {

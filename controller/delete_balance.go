@@ -21,7 +21,8 @@ func DeleteBalance(c *gin.Context) {
 	}
 
 	// 删除
-	resp, err := service.DeleteService(ctx, &req)
+	svc := service.GetService()
+	resp, err := svc.DeleteBalanceService(ctx, &req)
 
 	// 错误返回
 	if err != nil && err.Error() == "delete user fail! There is no such data!" {

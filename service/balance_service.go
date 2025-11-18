@@ -10,6 +10,7 @@ import (
 	"http-demo/model/redis_model"
 	"http-demo/utils"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -17,7 +18,25 @@ import (
 	"gorm.io/gorm"
 )
 
-func GetService(ctx context.Context, req *model.GetBalanceReq) (*model.GetBalanceResp, error) {
+var (
+	serviceInstance *Service
+	once            sync.Once
+)
+
+type Service struct {
+	mysqldao *mysql_dao.Dao
+}
+
+func GetService() *Service {
+	once.Do(func() {
+		dao := mysql_dao.GetDaoSingleton()
+		serviceInstance = &Service{mysqldao: dao}
+		log.Println("TransferService initialized.")
+	})
+	return serviceInstance
+}
+
+func (s *Service) GetBalanceService(ctx context.Context, req *model.GetBalanceReq) (*model.GetBalanceResp, error) {
 	// redis get
 	redisBalance, err := redis_dao.GetBalanceCache(ctx, req.Id)
 	if redisBalance != nil && err == nil {
@@ -36,7 +55,8 @@ func GetService(ctx context.Context, req *model.GetBalanceReq) (*model.GetBalanc
 	// sql get
 	//不要用var req *model.Balance，这个只声明没有初始化没有分配内存，是指向nil的空指针，First(req)就会报错。
 	mysqlBalance := mysql_model.Balance{}
-	err = mysql_dao.GetBalance(ctx, &mysqlBalance, req.Id)
+	dao := mysql_dao.GetDaoSingleton()
+	err = dao.GetBalance(ctx, &mysqlBalance, req.Id)
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		// 没查到，findResult.Error == gorm.ErrRecordNotFound
 		log.Println(err)
@@ -72,12 +92,13 @@ func GetService(ctx context.Context, req *model.GetBalanceReq) (*model.GetBalanc
 
 }
 
-func CreateService(ctx context.Context, req *model.CreateBalanceReq) (*model.CreateBalanceResp, error) {
+func (s *Service) CreateBalanceService(ctx context.Context, req *model.CreateBalanceReq) (*model.CreateBalanceResp, error) {
 
 	balance := mysql_model.Balance{}
 
 	// get是否存在
-	err := mysql_dao.GetBalance(ctx, &balance, req.Id)
+	dao := mysql_dao.GetDaoSingleton()
+	err := dao.GetBalance(ctx, &balance, req.Id)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		//查询时发生数据库错误（不是“没查到记录”）
 		return nil, err
@@ -88,7 +109,7 @@ func CreateService(ctx context.Context, req *model.CreateBalanceReq) (*model.Cre
 
 	// create
 	balance = mysql_model.Balance{BalanceAccountId: req.Id, Balance: req.Balance, Currency: req.Currency}
-	err = mysql_dao.CreateBalance(ctx, &balance)
+	err = dao.CreateBalance(ctx, &balance)
 	if err != nil {
 		return nil, errors.New("user create fail，server error")
 	}
@@ -100,10 +121,11 @@ func CreateService(ctx context.Context, req *model.CreateBalanceReq) (*model.Cre
 
 }
 
-func DeleteService(ctx context.Context, req *model.DeleteBalanceReq) (*model.DeleteBalanceResp, error) {
+func (s *Service) DeleteBalanceService(ctx context.Context, req *model.DeleteBalanceReq) (*model.DeleteBalanceResp, error) {
 	// sql get
 	balance := mysql_model.Balance{}
-	err := mysql_dao.GetBalance(ctx, &balance, req.Id)
+	dao := mysql_dao.GetDaoSingleton()
+	err := dao.GetBalance(ctx, &balance, req.Id)
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		// 没找到数据
 		log.Println(err)
@@ -122,7 +144,7 @@ func DeleteService(ctx context.Context, req *model.DeleteBalanceReq) (*model.Del
 	}
 
 	// sql delete
-	err = mysql_dao.DeleteBalance(ctx, &balance)
+	err = dao.DeleteBalance(ctx, &balance)
 	if err != nil {
 		//删除失败
 		log.Println(err)
@@ -138,10 +160,11 @@ func DeleteService(ctx context.Context, req *model.DeleteBalanceReq) (*model.Del
 
 }
 
-func UpdateService(ctx context.Context, req *model.UpdateBalanceReq) (*model.UpdateBalanceResp, error) {
+func (s *Service) UpdateBalanceService(ctx context.Context, req *model.UpdateBalanceReq) (*model.UpdateBalanceResp, error) {
 	// sql get
 	balance := mysql_model.Balance{}
-	err := mysql_dao.GetBalance(ctx, &balance, req.Id)
+	dao := mysql_dao.GetDaoSingleton()
+	err := dao.GetBalance(ctx, &balance, req.Id)
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		// 没找到数据
 		log.Println(err)
@@ -161,7 +184,7 @@ func UpdateService(ctx context.Context, req *model.UpdateBalanceReq) (*model.Upd
 
 	// sql update
 	balance = mysql_model.Balance{BalanceAccountId: req.Id, Balance: req.Balance}
-	err = mysql_dao.UpdateBalance(ctx, &balance)
+	err = dao.UpdateBalance(ctx, &balance)
 	if err != nil {
 		log.Println(err)
 		return nil, err
@@ -174,7 +197,7 @@ func UpdateService(ctx context.Context, req *model.UpdateBalanceReq) (*model.Upd
 
 }
 
-func TransferService(ctx context.Context, req *model.TransferBalanceReq) (*model.TransferBalanceResp, error) {
+func (s *Service) TransferService(ctx context.Context, req *model.TransferBalanceReq) (*model.TransferBalanceResp, error) {
 	fromAccount := mysql_model.Balance{}
 	toAccount := mysql_model.Balance{}
 	transfer := mysql_model.Transaction{
@@ -187,10 +210,11 @@ func TransferService(ctx context.Context, req *model.TransferBalanceReq) (*model
 		ExpansionFactor: req.ExpansionFactor,
 	}
 	//开启事务
-	transactionErr := mysql_dao.DB.Transaction(func(tx *gorm.DB) error {
+	dao := mysql_dao.GetDaoSingleton()
+	transactionErr := dao.Transaction(func(tx *gorm.DB) error {
 		// sql get
-		fromErr := mysql_dao.GetBalance(ctx, &fromAccount, req.FromAccountId)
-		toErr := mysql_dao.GetBalance(ctx, &toAccount, req.ToAccountId)
+		fromErr := dao.GetBalance(ctx, &fromAccount, req.FromAccountId)
+		toErr := dao.GetBalance(ctx, &toAccount, req.ToAccountId)
 		// AccountId not found
 		if errors.Is(fromErr, gorm.ErrRecordNotFound) {
 			return utils.ErrFromAccountNotFound
@@ -232,7 +256,7 @@ func TransferService(ctx context.Context, req *model.TransferBalanceReq) (*model
 
 		var mysqlErr *mysql.MySQLError
 		// CreateTransfer
-		err := mysql_dao.CreateTransfer(ctx, tx, &transfer)
+		err := dao.CreateTransfer(ctx, &transfer)
 		if errors.As(err, &mysqlErr) {
 			switch mysqlErr.Number {
 			case 1062:
@@ -248,7 +272,7 @@ func TransferService(ctx context.Context, req *model.TransferBalanceReq) (*model
 
 		// Update small Balance
 		log.Println("UpdateTransfer ing....", time.Now())
-		rows, err := mysql_dao.UpdateTransferBalance(ctx, tx, &small)
+		rows, err := dao.UpdateTransferBalance(ctx, &small)
 		if err != nil {
 			return err
 		}
@@ -261,7 +285,7 @@ func TransferService(ctx context.Context, req *model.TransferBalanceReq) (*model
 			}
 		}
 		// Update big Balance
-		rows, err = mysql_dao.UpdateTransferBalance(ctx, tx, &big)
+		rows, err = dao.UpdateTransferBalance(ctx, &big)
 		if err != nil {
 			return err
 		}
@@ -283,8 +307,8 @@ func TransferService(ctx context.Context, req *model.TransferBalanceReq) (*model
 	}
 
 	// redis set A
-	fromErr := mysql_dao.GetBalance(ctx, &fromAccount, req.FromAccountId)
-	toErr := mysql_dao.GetBalance(ctx, &toAccount, req.ToAccountId)
+	fromErr := dao.GetBalance(ctx, &fromAccount, req.FromAccountId)
+	toErr := dao.GetBalance(ctx, &toAccount, req.ToAccountId)
 	if fromErr != nil {
 		log.Println(fromErr)
 	}
@@ -314,8 +338,8 @@ func TransferService(ctx context.Context, req *model.TransferBalanceReq) (*model
 		log.Println("redis set error!")
 	}
 
-	// get Transfer
-	err = mysql_dao.GetTransfer(ctx, mysql_dao.DB, &transfer)
+	// todo get Transfer
+	err = dao.GetTransfer(ctx, &transfer)
 	if err != nil {
 		log.Println("transfer set error!")
 	}
